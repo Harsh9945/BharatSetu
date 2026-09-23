@@ -1,73 +1,87 @@
-# BharatSetu Architecture Specification
+# BharatSetu System Architecture Specification
 
-> **Document Version:** 1.0.0 (Proposal Stage)  
+> **Project:** BharatSetu (भारतसेतु)  
+> **Challenge:** Drunix Hackathon in collaboration with Citi  
+> **Topic:** Real-Time Payments — Trusted Retry Ledger  
 > **Target Repository:** [BharatSetu](https://github.com/Harsh9945/BharatSetu)
 
 ---
 
-## 📌 Executive Summary
+## 📌 Architectural Overview
 
-BharatSetu is designed as a resilient, decoupled civic infrastructure and trade orchestration platform. The architecture ensures that user requests (grievances, trade transactions, service applications) are enriched, routed, persistently logged, and verified via decentralized smart contracts without relying on transient single-session states.
+BharatSetu introduces a **permissioned, cross-organization Trusted Retry Ledger** built on **Drunix**. It connects Merchant PSPs, Issuing Banks, and payment switches to coordinate autonomous payment recovery for **soft failures** without storing, exposing, or replaying sensitive credentials (PINs, OTPs, CVVs).
+
+The platform separates responsibilities into three major tiers:
+1. **Decision Layer:** FastAPI (Python) AI Engine — Classifies failure types (Soft vs. Hard) and evaluates Expected Value (EV) / Risk rules.
+2. **Trust Layer:** Drunix Distributed Ledger with Java Chaincode — Manages time-bound, single-use cryptographically verifiable Consent Proofs.
+3. **Orchestration Layer:** Spring Boot — Handles payment workflow coordination, event streaming via Kafka, local caching via Redis, and application storage via PostgreSQL.
 
 ---
 
-## 🔄 Architectural Flow Diagram
+## 🔄 System Flow & Component Interaction
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer["1. Citizen & Admin Client Plane (frontend/)"]
-        CitizenUI["Citizen Portal (Chat / Voice / Web)"]
-        GovUI["Government / Admin Console"]
+    subgraph ClientPlane["1. Client Plane (frontend/)"]
+        ReactUI["React Web Client / PSP Console"]
     end
 
-    subgraph ServiceLayer["2. Backend & Gateway Layer (backend/)"]
-        APIGateway["API Gateway & Router"]
-        Orchestrator["Workflow Orchestrator"]
-        WorkerQueue["Async Task Workers"]
+    subgraph OrchestrationLayer["2. Orchestration & Gateway (backend/)"]
+        SpringBoot["Spring Boot Orchestrator"]
+        Kafka["Apache Kafka (Event Streaming)"]
+        Redis["Redis (Local State & Cooldown Cache)"]
+        Postgres[("PostgreSQL (App Data)")]
     end
 
-    subgraph LedgerLayer["3. Ledger & Smart Contract Layer (chaincode/)"]
-        SmartContract["Chaincode Logic (State Machine)"]
-        LedgerState["Immutable State Ledger"]
+    subgraph DecisionLayer["3. Decision Layer (backend/)"]
+        FastAPI["FastAPI / AI Engine"]
+        Classifier["Failure Classifier (Hard vs Soft)"]
+        RiskGate["EV / Risk Gate"]
     end
 
-    subgraph StorageLayer["4. Persistence & External Services"]
-        Database["Persistence Store (Cosmos DB / Postgres)"]
-        AIServices["AI & Language Services (Translation / Speech)"]
+    subgraph TrustLayer["4. Trust Layer (chaincode/)"]
+        DrunixLedger["Drunix Permissioned DLT"]
+        JavaChaincode["Java Chaincode (Consent Proof)"]
     end
 
-    %% Interaction Flow
-    CitizenUI -->|"1. Submit Request / Grievance"| APIGateway
-    GovUI -->|"Oversight & Action"| APIGateway
+    %% Flow Connections
+    ReactUI -->|"1. Initiate Payment / Ingest Failure"| SpringBoot
+    SpringBoot -->|"2. Publish Event"| Kafka
+    SpringBoot -->|"3. Log Transaction State"| Postgres
 
-    APIGateway -->|"2. Process & Translate"| AIServices
-    APIGateway -->|"3. Queue Async Task"| WorkerQueue
-    WorkerQueue -->|"4. Route & Enforce Workflow"| Orchestrator
+    SpringBoot -->|"4. Query Failure Classification"| FastAPI
+    FastAPI --> Classifier
+    Classifier -->|"5. Soft Failure Identified"| RiskGate
+    RiskGate -->|"6. Check Cooldowns & Thresholds"| Redis
+    RiskGate -->|"7. Evaluation Result (RETRY / BLOCK)"| SpringBoot
 
-    Orchestrator -->|"5. Persist Application State"| Database
-    Orchestrator -->|"6. Commit Transaction"| SmartContract
+    SpringBoot -->|"8. Verify & Redeem Consent Proof"| JavaChaincode
+    JavaChaincode -->|"9. Ledger State Check & Update"| DrunixLedger
+    DrunixLedger -->|"10. Proof Validated & Burned"| SpringBoot
 
-    SmartContract -->|"7. Update Ledger"| LedgerState
-    LedgerState -->|"8. Event Notification"| APIGateway
-    APIGateway -->|"9. Real-time Status Update"| CitizenUI
-    APIGateway -->|"10. Update Dashboard"| GovUI
+    SpringBoot -->|"11. Execute Controlled Retry"| ReactUI
 ```
 
 ---
 
-## 🧱 Component Architecture Table
+## 🧱 Component & Technology Table
 
-| Component Layer | Directory | Key Elements | Responsibility & Description |
+| Layer / Component | Technology | Directory | Responsibility & Details |
 | :--- | :--- | :--- | :--- |
-| **Citizen & Admin Plane** | `frontend/` | Next.js Client, Web & Mobile UI, Voice/Chat Ingestion | User-facing portal for submitting requests, filing grievances, uploading documents, and real-time tracking. Includes administrator oversight dashboard. |
-| **Backend & Routing Gateway** | `backend/` | API Gateway, Routing Engine, Async Worker Queues | Ingests requests, performs authentication, manages background tasks, orchestrates multi-step workflows, and integrates AI translation services. |
-| **Smart Contract Layer** | `chaincode/` | Chaincode Contracts, Ledger Verification, State Transition Rules | Decentralized logic enforcing immutable transaction records, multi-party approval state machines, and tamper-proof audit trails. |
-| **Persistence & External Services** | Infrastructure | Relational / Document Store, AI Speech/Vision, Azure/AWS Cloud | Maintains operational persistent state (user profiles, message logs, document metadata) alongside external language translation and vision models. |
+| **Trust Layer** | **Drunix & Java Chaincode** | `chaincode/` | Permissioned distributed ledger platform running Java chaincode. Stores cryptographically verifiable, time-bound, and single-use **Consent Proofs** for transaction recovery without exposing auth secrets. |
+| **Decision Layer** | **FastAPI (Python)** | `backend/` | Microservice hosting the **AI Payment Failure Classifier** (categorizes soft vs. hard failures) and the **EV / Risk Gate** (evaluates cooldowns, value thresholds, and max retries). |
+| **Orchestration Layer** | **Spring Boot** | `backend/` | Core payment orchestrator and gateway. Manages transaction lifecycle, coordinates decisions between the AI engine and Drunix ledger, and triggers payment retries. |
+| **Event Streaming** | **Apache Kafka** | Infrastructure | Real-time event bus capturing payment attempts, failure signals, retry events, and ledger state updates across participating organizations. |
+| **Local State & Cache** | **Redis** | Infrastructure | In-memory cache for fast policy verification, active retry cooldown timers, and transient failure counts. |
+| **Application Persistence**| **PostgreSQL** | Infrastructure | Relational data store for audit logs, historical transaction metadata, organization profiles, and system analytics. |
+| **Frontend UI** | **React** | `frontend/` | Web dashboard for payment status tracking, retry policy configuration, and real-time ledger auditability. |
+| **Infrastructure** | **Docker / Compose** | Infrastructure | Orchestrates local development containers including Drunix test network, Kafka, Redis, Postgres, FastAPI, and Spring Boot. |
 
 ---
 
-## 🔒 Security & Data Integrity
+## 🔒 Security & Consent Proof Lifecycle
 
-1. **Immutability:** Transaction states and official actions are recorded via `chaincode/` onto a distributed ledger.
-2. **Persistence:** Asynchronous workers ensure that requests are never dropped during transient gateway downtime or long-running administrative processes.
-3. **Multi-lingual Accessibility:** Language processing happens at the gateway layer before state submission, normalizing requests across regional dialects.
+1. **Non-Storage of Credentials:** Neither PINs, OTPs, CVVs, nor authentication secrets are ever stored or logged on Drunix or the backend services.
+2. **Proof Issuance:** Successful initial authentication generates a time-bound hash proof recorded on the Drunix permissioned ledger.
+3. **Single-Use Burn:** Upon successful execution of a controlled retry, the Java chaincode updates the proof state to `REDEEMED`, permanently blocking re-use.
+4. **Cross-Organizational Auditability:** Member organizations (Issuing Banks, PSPs, Switches) verify consent proof validity directly against Drunix peers.
