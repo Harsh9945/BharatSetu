@@ -2,7 +2,7 @@
 
 > **Status:** 🏛️ Proposal & Architecture Phase  
 > **Challenge:** Drunix Hackathon in collaboration with Citi  
-> **Problem Statement:** Real-Time Payments  
+> **Problem Statement:** Real-Time Payments — Trusted Retry Ledger  
 > **Repository:** [https://github.com/Harsh9945/BharatSetu](https://github.com/Harsh9945/BharatSetu)
 
 ---
@@ -17,11 +17,11 @@ Real-time payments can fail because of transient technical conditions such as ne
 
 BharatSetu addresses this cross-organization trust problem by combining:
 
-- AI-based payment failure classification
-- Risk and Expected Value (EV) based retry decisioning
-- A permissioned Drunix consent-proof ledger
-- Time-bound and single-use retry authorization
-- Cross-organization verification and auditability
+- **AI-based payment failure classification**
+- **Risk and Expected Value (EV) based retry decisioning**
+- **A permissioned Drunix consent-proof ledger**
+- **Time-bound and single-use retry authorization**
+- **Cross-organization verification and auditability**
 
 ---
 
@@ -147,13 +147,13 @@ Re-auth Flow     EV / Risk Gate
 bharatsetu/
 ├── README.md                 ← Project overview, proposal & end-to-end flow
 ├── docs/
-│   └── architecture.md       ← Complete architecture diagram, component split & tech stack
+│   └── architecture.md       ← Complete architecture specification & component split
 ├── chaincode/
 │   └── .gitkeep              ← Java chaincode for Drunix consent proof ledger
 ├── backend/
 │   └── .gitkeep              ← Spring Boot orchestrator & FastAPI AI engine
 └── frontend/
-    └── .gitkeep              ← React client web interface
+    └── .gitkeep              ← React merchant/bank console interface
 ```
 
 ---
@@ -167,6 +167,34 @@ bharatsetu/
 - **Persistence:** PostgreSQL
 - **Frontend:** React
 - **Infrastructure:** Docker, Docker Compose (Drunix sample/test network)
+
+---
+
+## 📅 Hackathon Roadmap (Coding Window: Oct 10 – Nov 22)
+
+```text
+  Oct 10                     Oct 24                     Nov 07                  Nov 22
+    │                          │                          │                        │
+    ├─── Weeks 1–2 ────────────┼─── Weeks 3–4 ────────────┼─── Weeks 5–6 ──────────┤
+    │  Trust & AI Core         │  Backend Orchestration   │  Frontend & Integration│
+```
+
+### 🔹 Weeks 1–2 (Oct 10 – Oct 23): Core Trust Layer & Decision Engine
+- [ ] Develop **Java Chaincode** for Drunix consent proof lifecycle (`ISSUED`, `VALIDATED`, `REDEEMED`, `EXPIRED`).
+- [ ] Build **FastAPI (Python)** AI failure classifier microservice for soft vs. hard failure distinction.
+- [ ] Implement initial EV / Risk gating rules (transaction value thresholds, cooldown windows).
+
+### 🔹 Weeks 3–4 (Oct 24 – Nov 06): Backend Orchestration & Pipeline
+- [ ] Implement **Spring Boot** payment orchestration gateway.
+- [ ] Integrate **Apache Kafka** event topics for transaction failures and retry signals.
+- [ ] Configure **Redis** for active cooldown caching and **PostgreSQL** for audit storage.
+- [ ] Wire Spring Boot with Drunix Java Chaincode via SDK/gRPC.
+
+### 🔹 Weeks 5–6 (Nov 07 – Nov 22): Frontend, Integration & Final Submission
+- [ ] Build **React** dashboard for Merchant PSP / Bank console (real-time retry tracking & ledger audit).
+- [ ] Assemble **Docker Compose** environment bundling Drunix testnet, Kafka, Redis, Postgres, and services.
+- [ ] End-to-end failure injection and controlled retry simulation.
+- [ ] Final demonstration video and hackathon submission polish.
 
 ---
 
